@@ -14,6 +14,21 @@ export PATH=$JAVA_HOME/bin:$PATH
 export LOG="$OPENSHIFT_VERTX_LOG_DIR"out.log
 RUNNING_PID=${OPENSHIFT_HOMEDIR}/app-root/runtime/vertx.pid
 
+#Adding hook functionality from DIY cartridge
+function run_hook() {
+  local path="$OPENSHIFT_REPO_DIR/.openshift/action_hooks/$1"
+  if [ -f "$path" -a -x "$path" ]
+  then
+    "$path"
+  else
+    return 0
+  fi
+}
+
+function prestart() {
+  run_hook pre_start
+}
+
 # Check whether the application is running.
 # The check is pretty simple: open a running pid file and check that the process
 # is alive.
@@ -32,6 +47,7 @@ function isrunning() {
 
 function stop() {
   client_message "Stopping Vert.x application"
+  run_hook stop
   if isrunning; then
     kill `cat $RUNNING_PID`
     rm $RUNNING_PID
@@ -82,6 +98,8 @@ function start() {
 
   echo "Starting Vert.x application"
 
+  prestart
+  
   envf="$OPENSHIFT_REPO_DIR/configuration/vertx.env"
   #  Source environment if it exists.
   [ -f "$envf" ]  &&  source "$envf"
